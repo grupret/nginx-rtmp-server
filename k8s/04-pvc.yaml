@@ -1,0 +1,26 @@
+# ─── Optional: PersistentVolumeClaim for HLS segments ─────────────────────────
+# Use this if you want HLS segments to survive pod restarts,
+# or if you need to share segments across multiple replicas via a shared filesystem (e.g., NFS, EFS).
+#
+# To use this PVC:
+#   1. Apply this file: kubectl apply -f 04-pvc.yaml
+#   2. In 02-deployment.yaml, replace the `hls-storage: emptyDir: {}` volume with:
+#
+#        - name: hls-storage
+#          persistentVolumeClaim:
+#            claimName: nginx-rtmp-hls-pvc
+#
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nginx-rtmp-hls-pvc
+  namespace: streaming
+  labels:
+    app: nginx-rtmp
+spec:
+  accessModes:
+    - ReadWriteOnce       # Use ReadWriteMany (NFS/EFS) for multi-replica setups
+  resources:
+    requests:
+      storage: 5Gi
+  # storageClassName: standard   # Uncomment and set your storage class if needed

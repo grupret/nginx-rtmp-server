@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-rtmp
+  namespace: streaming
+  labels:
+    app: nginx-rtmp
+spec:
+  replicas: 1
+  # ⚠️  RTMP is stateful (active stream connections).
+  # Keep replicas: 1 OR use a proper load-balancer strategy (e.g., sticky sessions)
+  # if you scale beyond 1 replica.
+  selector:
+    matchLabels:
+      app: nginx-rtmp
+  template:
+    metadata:
+      labels:
+        app: nginx-rtmp
+    spec:
+      containers:
+        - name: nginx-rtmp
+          # Replace with your actual image after `docker build` and push
+          image: nikhilv215/nginx-rtmp:latest
+          imagePullPolicy: Always
+
+          ports:
+            - name: rtmp
+              containerPort: 1935
+              protocol: TCP
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          # Mount nginx config from ConfigMap
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: hls-storage
+              mountPath: /tmp/hls
+
+          # Health checks
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: nginx-rtmp-config
+
+        # HLS segments stored in emptyDir (ephemeral, in-pod storage).
+        # Replace with a PVC (see 03-pvc.yaml) if you need persistence.
+        - name: hls-storage
+          emptyDir: {}
+
+
+# http://192.153.62.149:8080/hls/test.m3u8
